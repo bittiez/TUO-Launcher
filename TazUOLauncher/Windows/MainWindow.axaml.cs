@@ -37,12 +37,16 @@ public partial class MainWindow : Window
 
         InitPRBuildsMenu();
 
-        DoChecksAsync();
+        _ = DoChecksAsync();
         LoadProfiles();
 
         Timer periodicChecks = new Timer(TimeSpan.FromHours(1));
-        periodicChecks.AutoReset = true;
-        periodicChecks.Elapsed += (sender, args) => DoChecksAsync();
+        periodicChecks.AutoReset = false;
+        periodicChecks.Elapsed += async (sender, args) => 
+        {
+            await DoChecksAsync();
+            periodicChecks.Start();
+        };
         periodicChecks.Start();
         
         DateTime dt = DateTime.Now;
@@ -86,7 +90,7 @@ public partial class MainWindow : Window
         await ProfileManager.GetAllProfiles();
         SetProfileSelectorComboBox();
     }
-    private async void DoChecksAsync()
+    private async Task DoChecksAsync()
     {
         LoadNews();
         var remoteVersionInfo = UpdateHelper.GetAllReleaseData(LauncherSettings.GetLauncherSaveFile.DownloadChannel);

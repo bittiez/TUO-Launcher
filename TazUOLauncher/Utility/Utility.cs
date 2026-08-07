@@ -11,6 +11,7 @@ using System.Xml;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 namespace TazUOLauncher;
 
@@ -337,6 +338,14 @@ internal static class Utility
 
     public static async Task<bool> ShowConfirmationDialog(Window parent, string title, string message, Action<bool> onResult = null)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            var recallResult = await Dispatcher.UIThread.InvokeAsync(() => ShowConfirmationDialog(parent, title, message, null!));
+            //ensure call onResult outside UI thread scope
+            onResult?.Invoke(recallResult);
+            return recallResult;
+        }
+
         var dialog = new Window
         {
             Title = title,
