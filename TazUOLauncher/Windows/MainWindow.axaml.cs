@@ -44,8 +44,14 @@ public partial class MainWindow : Window
         periodicChecks.AutoReset = false;
         periodicChecks.Elapsed += async (sender, args) => 
         {
-            await DoChecksAsync();
-            periodicChecks.Start();
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(DoChecksAsync);
+            }
+            finally
+            {
+                periodicChecks.Start();
+            }
         };
         periodicChecks.Start();
         
@@ -62,7 +68,7 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private async void LoadNews()
+    private async Task LoadNews()
     {
         if (BuildInfo.IsDebug)
         {
@@ -92,7 +98,7 @@ public partial class MainWindow : Window
     }
     private async Task DoChecksAsync()
     {
-        LoadNews();
+        var newsTask = LoadNews();
         var remoteVersionInfo = UpdateHelper.GetAllReleaseData(LauncherSettings.GetLauncherSaveFile.DownloadChannel);
         ClientExistsChecks(); //Doesn't need to wait for release data
 
@@ -100,6 +106,13 @@ public partial class MainWindow : Window
         UpdateVersionStrings();
         CheckLauncherVersion();
         ClientUpdateChecks();
+        try
+        {
+            await newsTask;
+        }
+        catch
+        {
+        }
         if (!await AutoUpdateHandler())
             HandleUpdates();
     }
@@ -312,7 +325,7 @@ public partial class MainWindow : Window
     {
         var releaseData= UpdateHelper.GetAllReleaseData(LauncherSettings.GetLauncherSaveFile.DownloadChannel);
         viewModel.RemoteVersionString = string.Format(CONSTANTS.REMOTE_VERSION_FORMAT, "Checking");
-        LoadNews();
+        _ = LoadNews();
         ClientHelper.CleanUpClientFiles(); //Clean up files before redownloading to avoid errors
         
         ClientHelper.LocalClientVersion = ClientHelper.LocalClientVersion; //Client version is re-checked when setting this var
