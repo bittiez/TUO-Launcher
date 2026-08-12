@@ -37,12 +37,22 @@ public partial class MainWindow : Window
 
         InitPRBuildsMenu();
 
-        DoChecksAsync();
+        _ = DoChecksAsync();
         LoadProfiles();
 
         Timer periodicChecks = new Timer(TimeSpan.FromHours(1));
-        periodicChecks.AutoReset = true;
-        periodicChecks.Elapsed += (sender, args) => DoChecksAsync();
+        periodicChecks.AutoReset = false;
+        periodicChecks.Elapsed += async (sender, args) => 
+        {
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(DoChecksAsync);
+            }
+            finally
+            {
+                periodicChecks.Start();
+            }
+        };
         periodicChecks.Start();
         
         DateTime dt = DateTime.Now;
@@ -58,7 +68,7 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private async void LoadNews()
+    private async Task LoadNews()
     {
         if (BuildInfo.IsDebug)
         {
@@ -86,9 +96,9 @@ public partial class MainWindow : Window
         await ProfileManager.GetAllProfiles();
         SetProfileSelectorComboBox();
     }
-    private async void DoChecksAsync()
+    private async Task DoChecksAsync()
     {
-        LoadNews();
+        var newsTask = LoadNews();
         var remoteVersionInfo = UpdateHelper.GetAllReleaseData(LauncherSettings.GetLauncherSaveFile.DownloadChannel);
         ClientExistsChecks(); //Doesn't need to wait for release data
 
@@ -96,6 +106,13 @@ public partial class MainWindow : Window
         UpdateVersionStrings();
         CheckLauncherVersion();
         ClientUpdateChecks();
+        try
+        {
+            await newsTask;
+        }
+        catch
+        {
+        }
         if (!await AutoUpdateHandler())
             HandleUpdates();
     }
@@ -308,7 +325,7 @@ public partial class MainWindow : Window
     {
         var releaseData= UpdateHelper.GetAllReleaseData(LauncherSettings.GetLauncherSaveFile.DownloadChannel);
         viewModel.RemoteVersionString = string.Format(CONSTANTS.REMOTE_VERSION_FORMAT, "Checking");
-        LoadNews();
+        _ = LoadNews();
         ClientHelper.CleanUpClientFiles(); //Clean up files before redownloading to avoid errors
         
         ClientHelper.LocalClientVersion = ClientHelper.LocalClientVersion; //Client version is re-checked when setting this var
